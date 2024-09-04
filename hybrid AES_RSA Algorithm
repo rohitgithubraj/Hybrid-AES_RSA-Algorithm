@@ -1,0 +1,100 @@
+!pip install pycryptodome
+!pip install rsa
+
+from Crypto.Cipher import AES
+import secrets
+import rsa
+
+
+def gen_rsa_keys():
+    (pubkey, privkey) = rsa.newkeys(1024)
+
+    with open('pubkey.pem', 'wb') as f:
+        f.write(pubkey.save_pkcs1('PEM'))
+
+    with open('privkey.pem', 'wb') as f:
+        f.write(privkey.save_pkcs1('PEM'))
+
+
+def load_rsa_keys():
+    with open('pubkey.pem', 'rb') as f:
+        pubkey = rsa.PublicKey.load_pkcs1(f.read())
+
+    with open('privkey.pem', 'rb') as f:
+        privkey = rsa.PrivateKey.load_pkcs1(f.read())
+
+    return pubkey, privkey
+
+def encrypt_RSA(publickey, plaintext):
+    # return rsa.encrypt(plaintext.encode('utf-8'), publickey)
+    return rsa.encrypt(plaintext, publickey)
+
+def decrypt_RSA(privatekey, ciphertext):
+    try:
+        # return rsa.decrypt(ciphertext, privatekey).decode('utf-8')
+        return rsa.decrypt(ciphertext, privatekey)
+    except:
+        return False
+
+
+
+def encrypt_AES(cipherAES, plaintext):
+    return cipherAES.encrypt(plaintext.encode('utf-8'))
+
+def decrypt_AES(cipherAES, ciphertext):
+    return cipherAES.decrypt(ciphertext).decode('utf-8')
+
+
+def main():
+    gen_rsa_keys()
+    pubkey, privkey = load_rsa_keys()
+    key = secrets.token_hex(16)
+    AESkey = key.encode('utf-8')
+
+    plaintext = input("Enter the message here: ")
+
+    print("ENCRYPTING USING AES>>>>>>>")
+
+    cipherAES = AES.new(AESkey, AES.MODE_GCM)
+    nonce = cipherAES.nonce
+
+    ciphertext_AES = encrypt_AES(cipherAES, plaintext)
+    print(f'ciphertext_AES:  {ciphertext_AES}')
+
+    print("ENCRYPTING THE CIPHER_AES WITH RSA>>>>>>>>>>")
+
+    ciphertext_RSA = encrypt_RSA(pubkey, ciphertext_AES)
+    print(f'ciphertext_RSA: {ciphertext_RSA}')
+
+    print("ENCRYPTING KEY USING RSA>>>>>>")
+
+    cipherkey = encrypt_RSA(pubkey, AESkey)
+    print(f'cipherkey:  {cipherkey}')
+
+    print("DECRYPTING NOW>>>>>>>")
+    print("DECRYPTING CIPHER_RSA WITH RSA>>>>>>>>>>>")
+
+    plain_msg_AES = decrypt_RSA(privkey, ciphertext_RSA)
+
+    print(f'Ciphertext_AES: {plain_msg_AES}')
+
+    print("DECRYPTING KEY USING RSA>>>>>>")
+
+    dec_key = decrypt_RSA(privkey, cipherkey)
+    # dec_keyAES = dec_key.encode('utf-8')
+
+    print("DECRYPTING THE CIPHERTEXT USING AES>>>>>>>>>")
+
+    dcipher_AES = AES.new(dec_key, AES.MODE_GCM, nonce=nonce)
+    final_msg = decrypt_AES(dcipher_AES, plain_msg_AES)
+
+    if final_msg:
+        print("The original message was: " + final_msg)
+    else:
+        print("message corrupted!")
+
+
+
+if __name__ == '__main__':
+    main()
+
